@@ -84,7 +84,7 @@ rules:
 
   # MEDIUM: E-commerce & Retail
   - name: ecommerce_phish
-    keywords: (ebay OR etsy OR shopify OR walmart) AND (login OR signin OR account OR payment)
+    keywords: (ebay OR etsy OR shopify OR walmart) AND (login OR signin OR account OR payment) AND NOT (shopifyapps.com OR ebay.com OR etsy.com OR shopify.com OR walmart.com)
     priority: medium
     enabled: true
     comment: "E-commerce platform credential harvesting"

@@ -153,6 +153,14 @@ class Dashboard {
 
             const data = await response.json();
             this.matches = data.matches || [];
+
+            // Sort matches by detected_at in descending order (newest first)
+            this.matches.sort((a, b) => {
+                const dateA = new Date(a.detected_at);
+                const dateB = new Date(b.detected_at);
+                return dateB - dateA;
+            });
+
             this.filterMatches();
             this.loadMetrics(); // Refresh metrics too
         } catch (error) {

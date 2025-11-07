@@ -1,10 +1,14 @@
 <div align="center">
-  <img src="docs/canary.png" alt="Canary Logo" width="200"/>
+  <img src="docs/canary.jpg" alt="Canary Logo" width="200"/>
 </div>
 
 # Canary - Certificate Transparency Monitor
 
 Real-time phishing detection through Certificate Transparency log monitoring with rule-based detection.
+
+<div align="center">
+  <img src="web/preview.jpg" alt="Canary Dashboard Preview" width="800"/>
+</div>
 
 ## What
 

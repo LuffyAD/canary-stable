@@ -63,18 +63,37 @@ func (c *Collector) Start(rulesCount, keywordsCount int) {
 		for range ticker.C {
 			metrics := c.collectMetrics(rulesCount, keywordsCount)
 
-			// Store in memory
+			// Only save and update if there's actual activity (non-zero certs or matches)
+			hasActivity := metrics.CertsPerMinute > 0 || metrics.MatchesPerMinute > 0
+
 			c.mu.Lock()
-			c.currentMetrics = metrics
-			c.recentMetrics = append(c.recentMetrics, metrics)
-			if len(c.recentMetrics) > c.maxRecentMetrics {
-				c.recentMetrics = c.recentMetrics[1:]
+			if hasActivity {
+				// Update all metrics including cert/match counters
+				c.currentMetrics = metrics
+				c.recentMetrics = append(c.recentMetrics, metrics)
+				if len(c.recentMetrics) > c.maxRecentMetrics {
+					c.recentMetrics = c.recentMetrics[1:]
+				}
+			} else if c.currentMetrics != nil {
+				// No activity - retain last cert/match values but update system metrics
+				c.currentMetrics.Timestamp = metrics.Timestamp
+				c.currentMetrics.CPUPercent = metrics.CPUPercent
+				c.currentMetrics.MemoryUsedMB = metrics.MemoryUsedMB
+				c.currentMetrics.MemoryTotalMB = metrics.MemoryTotalMB
+				c.currentMetrics.GoroutineCount = metrics.GoroutineCount
+				c.currentMetrics.DatabaseSizeMB = metrics.DatabaseSizeMB
+				// Keep previous CertsPerMinute, MatchesPerMinute, and AvgMatchTimeUs
+			} else {
+				// First metrics collection - save even if zero
+				c.currentMetrics = metrics
 			}
 			c.mu.Unlock()
 
-			// Store in database
-			if err := c.saveToDatabase(metrics); err != nil {
-				log.Printf("Warning: Failed to save metrics to database: %v", err)
+			// Only save to database if there's activity
+			if hasActivity {
+				if err := c.saveToDatabase(metrics); err != nil {
+					log.Printf("Warning: Failed to save metrics to database: %v", err)
+				}
 			}
 
 			// Reset per-minute counters
@@ -83,9 +102,11 @@ func (c *Collector) Start(rulesCount, keywordsCount int) {
 			c.totalMatchTimeUs.Store(0)
 			c.matchCount.Store(0)
 
-			log.Printf("Performance: %d certs/min, %d matches/min, %.2f%% CPU, %.1f MB RAM, avg match time: %d μs",
-				metrics.CertsPerMinute, metrics.MatchesPerMinute, metrics.CPUPercent,
-				metrics.MemoryUsedMB, metrics.AvgMatchTimeUs)
+			if hasActivity {
+				log.Printf("Performance: %d certs/min, %d matches/min, %.2f%% CPU, %.1f MB RAM, avg match time: %d μs",
+					metrics.CertsPerMinute, metrics.MatchesPerMinute, metrics.CPUPercent,
+					metrics.MemoryUsedMB, metrics.AvgMatchTimeUs)
+			}
 		}
 	}()
 }
