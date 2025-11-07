@@ -41,7 +41,6 @@ class Dashboard {
 
     setupEventListeners() {
         document.getElementById('refreshBtn').addEventListener('click', () => this.loadMatches());
-        document.getElementById('loadNewBtn').addEventListener('click', () => this.loadMatches());
         document.getElementById('clearBtn').addEventListener('click', () => this.clearMatches());
         document.getElementById('searchInput').addEventListener('input', () => this.filterMatches());
         document.getElementById('timeRange').addEventListener('change', () => this.loadMatches());
@@ -181,6 +180,13 @@ class Dashboard {
             const matchesPriority = !priority || match.priority === priority;
 
             return matchesSearch && matchesPriority;
+        });
+
+        // Ensure filtered results are sorted by newest first
+        this.filteredMatches.sort((a, b) => {
+            const dateA = new Date(a.detected_at);
+            const dateB = new Date(b.detected_at);
+            return dateB - dateA;
         });
 
         this.currentPage = 0;
