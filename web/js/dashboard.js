@@ -283,5 +283,12 @@ class Dashboard {
     }
 }
 
-// Initialize dashboard
-const dashboard = new Dashboard();
+// Initialize dashboard when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        const dashboard = new Dashboard();
+    });
+} else {
+    // DOM already loaded
+    const dashboard = new Dashboard();
+}
