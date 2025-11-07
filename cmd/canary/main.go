@@ -138,6 +138,12 @@ func main() {
 	mux.HandleFunc("/health", handlers.Health)
 	mux.HandleFunc("/config", handlers.GetConfig) // Public config info
 
+	// Enable public dashboard mode (must be set before middleware setup)
+	if os.Getenv("PUBLIC_DASHBOARD") == "true" {
+		config.PublicDashboard = true
+		log.Println("PUBLIC_DASHBOARD mode enabled - dashboard is read-only without auth")
+	}
+
 	// Create auth middleware
 	authMW := auth.AuthMiddleware(db, config.SecureCookies)
 	readOnlyMW := auth.ReadOnlyMiddleware(db, config.SecureCookies)
@@ -176,12 +182,6 @@ func main() {
 	if os.Getenv("DEBUG") == "true" {
 		config.Debug = true
 		log.Println("DEBUG mode enabled - will log all incoming webhook payloads")
-	}
-
-	// Enable public dashboard mode
-	if os.Getenv("PUBLIC_DASHBOARD") == "true" {
-		config.PublicDashboard = true
-		log.Println("PUBLIC_DASHBOARD mode enabled - dashboard is read-only without auth")
 	}
 
 	// Configure domain (for reverse proxy / HTTPS)

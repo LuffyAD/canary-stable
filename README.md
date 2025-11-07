@@ -44,6 +44,7 @@ cd deployments/docker
 docker-compose up -d --build
 ```
 
+
 This includes:
 - Canary service (port 8080)
 - Certspotter monitoring 40+ CT logs
