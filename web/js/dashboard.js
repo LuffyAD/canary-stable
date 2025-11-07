@@ -7,6 +7,7 @@ class Dashboard {
         this.pageSize = 20;
         this.refreshInterval = null;
         this.publicDashboard = false;
+        this.authenticated = false;
 
         this.init();
     }
@@ -36,9 +37,10 @@ class Dashboard {
             if (response.ok) {
                 const data = await response.json();
                 this.publicDashboard = data.public_dashboard || false;
+                this.authenticated = data.authenticated || false;
 
-                // Hide clear button if in public mode
-                if (this.publicDashboard) {
+                // Hide clear button only if in public mode AND not authenticated
+                if (this.publicDashboard && !this.authenticated) {
                     const clearBtn = document.getElementById('clearBtn');
                     if (clearBtn) clearBtn.style.display = 'none';
                 }

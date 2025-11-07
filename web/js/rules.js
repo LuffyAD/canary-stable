@@ -6,6 +6,7 @@ class RulesManager {
         this.ruleModal = null;
         this.deleteModal = null;
         this.publicDashboard = false;
+        this.authenticated = false;
 
         this.init();
     }
@@ -26,9 +27,10 @@ class RulesManager {
             if (response.ok) {
                 const data = await response.json();
                 this.publicDashboard = data.public_dashboard || false;
+                this.authenticated = data.authenticated || false;
 
-                // Hide action buttons if in public mode
-                if (this.publicDashboard) {
+                // Hide action buttons only if in public mode AND not authenticated
+                if (this.publicDashboard && !this.authenticated) {
                     const addRuleBtn = document.getElementById('addRuleBtn');
                     const reloadBtn = document.getElementById('reloadRulesBtn');
                     if (addRuleBtn) addRuleBtn.style.display = 'none';
@@ -117,8 +119,8 @@ class RulesManager {
             low: 'secondary'
         }[rule.priority] || 'secondary';
 
-        // Hide action buttons in public mode
-        const actionsColumn = this.publicDashboard ? '' : `
+        // Hide action buttons only if in public mode AND not authenticated
+        const actionsColumn = (this.publicDashboard && !this.authenticated) ? '' : `
             <td>
                 <div class="btn-group btn-group-sm">
                     <button class="btn btn-outline-secondary" onclick="rulesManager.toggleRule('${rule.name}')" title="${rule.enabled ? 'Disable' : 'Enable'}">

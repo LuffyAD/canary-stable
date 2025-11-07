@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"canary/internal/auth"
 	"canary/internal/config"
 	"canary/internal/database"
 	"canary/internal/models"
@@ -362,9 +363,19 @@ func Metrics(w http.ResponseWriter, r *http.Request) {
 
 // GetConfig returns public configuration info
 func GetConfig(w http.ResponseWriter, r *http.Request) {
+	// Check if user is authenticated by validating session cookie
+	authenticated := false
+	cookie, err := r.Cookie("canary_session")
+	if err == nil {
+		// Try to validate session
+		_, err := auth.GetSessionByToken(config.DB, cookie.Value)
+		authenticated = (err == nil)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"public_dashboard": config.PublicDashboard,
+		"authenticated":    authenticated,
 	})
 }
 
