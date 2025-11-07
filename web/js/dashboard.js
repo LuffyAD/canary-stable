@@ -13,7 +13,7 @@ class Dashboard {
 
     async init() {
         this.setupEventListeners();
-        this.setupThemeToggle();
+        // Theme toggle is now handled by base.html template
 
         // Initial load
         await this.loadMetrics();
@@ -71,31 +71,6 @@ class Dashboard {
         }
     }
 
-    setupThemeToggle() {
-        const themeToggle = document.getElementById('themeToggle');
-        if (!themeToggle) return;
-
-        const html = document.documentElement;
-
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        html.setAttribute('data-bs-theme', savedTheme);
-        this.updateThemeIcon(savedTheme);
-
-        themeToggle.addEventListener('click', () => {
-            const currentTheme = html.getAttribute('data-bs-theme');
-            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-            html.setAttribute('data-bs-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
-            this.updateThemeIcon(newTheme);
-        });
-    }
-
-    updateThemeIcon(theme) {
-        const icon = document.querySelector('#themeToggle i');
-        if (icon) {
-            icon.className = theme === 'light' ? 'bi bi-moon-fill' : 'bi bi-sun-fill';
-        }
-    }
 
     // Helper to safely update element text content
     safeSetText(elementId, text) {

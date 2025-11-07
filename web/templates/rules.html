@@ -1,290 +1,183 @@
-<!DOCTYPE html>
-<html lang="en" data-bs-theme="light">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Canary CT Monitor - Rule Management">
-    <title>Rules - Canary CT Monitor</title>
+{{template "base" .}}
 
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <!-- Shadcn Theme -->
-    <link rel="stylesheet" href="/theme.css">
+{{define "title"}}Rules{{end}}
+{{define "description"}}Canary CT Monitor - Rule Management{{end}}
 
-    <link rel="icon" type="image/jpeg" href="/canary.jpg">
-</head>
-<body>
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg sticky-top border-bottom">
-        <div class="container-fluid">
-            <a class="navbar-brand d-flex align-items-center" href="/">
-                <img src="/canary.jpg" alt="Canary" width="32" height="32" class="me-2">
-                <span class="fw-bold">Canary CT Monitor</span>
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="/">
-                            <i class="bi bi-speedometer2 me-1"></i>Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="/rules">
-                            <i class="bi bi-list-check me-1"></i>Rules
-                        </a>
-                    </li>
-                </ul>
-                <div class="d-flex align-items-center gap-3">
-                    <span class="badge bg-success">
-                        <i class="bi bi-check-circle me-1"></i>Online
-                    </span>
-                    <button class="btn btn-sm btn-outline-secondary" id="themeToggle" title="Toggle theme">
-                        <i class="bi bi-moon-fill"></i>
-                    </button>
-                    <form action="/auth/logout" method="POST" style="display: inline;">
-                        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Logout">
-                            <i class="bi bi-box-arrow-right"></i>
-                        </button>
-                    </form>
-                </div>
-            </div>
+{{define "content"}}
+<main class="container-fluid py-4">
+    {{if .Message}}
+    <div class="alert alert-{{.MessageType}} alert-dismissible fade show" role="alert">
+        {{.Message}}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {{end}}
+
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">Detection Rules</h2>
+            <p class="text-muted mb-0">Manage boolean expression rules for certificate monitoring</p>
         </div>
-    </nav>
-
-    <!-- Main Content -->
-    <main class="container-fluid py-4">
-        {{if .Message}}
-        <div class="alert alert-{{.MessageType}} alert-dismissible fade show" role="alert">
-            {{.Message}}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
+        {{if .CanEdit}}
+        <a href="/rules/new" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i>Add Rule
+        </a>
         {{end}}
+    </div>
 
-        <!-- Page Header -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
+    <!-- Rules Table -->
+    <div class="card border">
+        <div class="card-header d-flex justify-content-between align-items-center">
             <div>
-                <h2 class="mb-1">Detection Rules</h2>
-                <p class="text-muted mb-0">Manage boolean expression rules for certificate monitoring</p>
+                <h5 class="mb-0">Active Rules</h5>
+                <small class="text-muted">{{len .Rules}} rules loaded</small>
             </div>
             {{if .CanEdit}}
-            <a href="/rules/new" class="btn btn-primary">
-                <i class="bi bi-plus-lg me-1"></i>Add Rule
-            </a>
+            <form action="/rules/reload" method="POST" style="display: inline;">
+                <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-clockwise me-1"></i>Reload from YAML
+                </button>
+            </form>
             {{end}}
         </div>
-
-        <!-- Rules Table -->
-        <div class="card border">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <div>
-                    <h5 class="mb-0">Active Rules</h5>
-                    <small class="text-muted">{{len .Rules}} rules loaded</small>
-                </div>
-                {{if .CanEdit}}
-                <form action="/rules/reload" method="POST" style="display: inline;">
-                    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-                    <button type="submit" class="btn btn-sm btn-outline-secondary">
-                        <i class="bi bi-arrow-clockwise me-1"></i>Reload from YAML
-                    </button>
-                </form>
-                {{end}}
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th style="width: 50px;">Status</th>
-                                <th>Name</th>
-                                <th>Expression</th>
-                                <th style="width: 100px;">Priority</th>
-                                <th style="width: 120px;">Order</th>
-                                {{if .CanEdit}}
-                                <th style="width: 150px;">Actions</th>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 50px;">Status</th>
+                            <th>Name</th>
+                            <th>Expression</th>
+                            <th style="width: 100px;">Priority</th>
+                            <th style="width: 120px;">Order</th>
+                            {{if .CanEdit}}
+                            <th style="width: 150px;">Actions</th>
+                            {{end}}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{if eq (len .Rules) 0}}
+                        <tr>
+                            <td colspan="{{if .CanEdit}}6{{else}}5{{end}}" class="text-center text-muted py-5">
+                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                No rules found. {{if .CanEdit}}Click "Add Rule" to create one.{{end}}
+                            </td>
+                        </tr>
+                        {{else}}
+                        {{range .Rules}}
+                        <tr>
+                            <td class="text-center">
+                                {{if .Enabled}}
+                                <i class="bi bi-check-circle-fill text-success"></i>
+                                {{else}}
+                                <i class="bi bi-x-circle-fill text-muted"></i>
                                 {{end}}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {{if eq (len .Rules) 0}}
-                            <tr>
-                                <td colspan="{{if .CanEdit}}6{{else}}5{{end}}" class="text-center text-muted py-5">
-                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                                    No rules found. {{if .CanEdit}}Click "Add Rule" to create one.{{end}}
-                                </td>
-                            </tr>
-                            {{else}}
-                            {{range .Rules}}
-                            <tr>
-                                <td class="text-center">
-                                    {{if .Enabled}}
-                                    <i class="bi bi-check-circle-fill text-success"></i>
-                                    {{else}}
-                                    <i class="bi bi-x-circle-fill text-muted"></i>
-                                    {{end}}
-                                </td>
-                                <td>
-                                    <div class="fw-semibold">{{.Name}}</div>
-                                    {{if .Comment}}<small class="text-muted">{{.Comment}}</small>{{end}}
-                                </td>
-                                <td>
-                                    <code class="small">{{.Keywords}}</code>
-                                </td>
-                                <td>
-                                    <span class="badge bg-{{if eq .Priority "critical"}}danger{{else if eq .Priority "high"}}warning{{else if eq .Priority "medium"}}info{{else}}secondary{{end}}">{{.Priority}}</span>
-                                </td>
-                                <td class="text-center">
-                                    <span class="badge bg-secondary">{{.Order}}</span>
-                                </td>
-                                {{if $.CanEdit}}
-                                <td>
-                                    <div class="btn-group btn-group-sm">
-                                        <form action="/rules/toggle/{{.Name}}" method="POST" style="display: inline;">
-                                            <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-                                            <button type="submit" class="btn btn-outline-secondary" title="{{if .Enabled}}Disable{{else}}Enable{{end}}">
-                                                <i class="bi {{if .Enabled}}bi-pause{{else}}bi-play{{end}}"></i>
-                                            </button>
-                                        </form>
-                                        <a href="/rules/edit/{{.Name}}" class="btn btn-outline-primary" title="Edit">
-                                            <i class="bi bi-pencil"></i>
-                                        </a>
-                                        <button type="button" class="btn btn-outline-danger" title="Delete"
-                                                onclick="if(confirm('Are you sure you want to delete rule {{.Name}}?')) { document.getElementById('delete-{{.Name}}').submit(); }">
-                                            <i class="bi bi-trash"></i>
+                            </td>
+                            <td>
+                                <div class="fw-semibold">{{.Name}}</div>
+                                {{if .Comment}}<small class="text-muted">{{.Comment}}</small>{{end}}
+                            </td>
+                            <td>
+                                <code class="small">{{.Keywords}}</code>
+                            </td>
+                            <td>
+                                <span class="badge bg-{{if eq .Priority "critical"}}danger{{else if eq .Priority "high"}}warning{{else if eq .Priority "medium"}}info{{else}}secondary{{end}}">{{.Priority}}</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-secondary">{{.Order}}</span>
+                            </td>
+                            {{if $.CanEdit}}
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <form action="/rules/toggle/{{.Name}}" method="POST" style="display: inline;">
+                                        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                        <button type="submit" class="btn btn-outline-secondary" title="{{if .Enabled}}Disable{{else}}Enable{{end}}">
+                                            <i class="bi {{if .Enabled}}bi-pause{{else}}bi-play{{end}}"></i>
                                         </button>
-                                        <form id="delete-{{.Name}}" action="/rules/delete/{{.Name}}" method="POST" style="display: none;">
-                                            <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-                                        </form>
-                                    </div>
-                                </td>
-                                {{end}}
+                                    </form>
+                                    <a href="/rules/edit/{{.Name}}" class="btn btn-outline-primary" title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-outline-danger" title="Delete"
+                                            onclick="if(confirm('Are you sure you want to delete rule {{.Name}}?')) { document.getElementById('delete-{{.Name}}').submit(); }">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                    <form id="delete-{{.Name}}" action="/rules/delete/{{.Name}}" method="POST" style="display: none;">
+                                        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                    </form>
+                                </div>
+                            </td>
+                            {{end}}
+                        </tr>
+                        {{end}}
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rule Documentation -->
+    <div class="card border mt-4">
+        <div class="card-header">
+            <h5 class="mb-0">Rule Syntax Guide</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Boolean Operators</h6>
+                    <table class="table table-sm">
+                        <tbody>
+                            <tr>
+                                <td><code>AND</code></td>
+                                <td>Both conditions must be true</td>
                             </tr>
-                            {{end}}
-                            {{end}}
+                            <tr>
+                                <td><code>OR</code></td>
+                                <td>At least one condition must be true</td>
+                            </tr>
+                            <tr>
+                                <td><code>NOT</code></td>
+                                <td>Excludes matches (negation)</td>
+                            </tr>
+                            <tr>
+                                <td><code>( )</code></td>
+                                <td>Grouping for precedence</td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
+                <div class="col-md-6">
+                    <h6>Examples</h6>
+                    <ul class="list-unstyled">
+                        <li class="mb-2">
+                            <code class="text-primary">login AND paypal</code>
+                            <br><small class="text-muted">Matches domains with both keywords</small>
+                        </li>
+                        <li class="mb-2">
+                            <code class="text-primary">(twitter OR x.com) AND login</code>
+                            <br><small class="text-muted">Matches twitter/x with login</small>
+                        </li>
+                        <li class="mb-2">
+                            <code class="text-primary">bank AND NOT official</code>
+                            <br><small class="text-muted">Bank domains excluding official ones</small>
+                        </li>
+                        <li class="mb-2">
+                            <code class="text-primary">(paypal OR stripe) AND login AND NOT (paypal.com OR stripe.com)</code>
+                            <br><small class="text-muted">Payment phishing excluding official domains</small>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="alert alert-info mb-0 mt-3">
+                <i class="bi bi-info-circle me-2"></i>
+                <strong>Note:</strong> NOT keywords are checked separately to ensure proper exclusion. Order of operators doesn't matter - expressions are parsed into a tree structure.
             </div>
         </div>
+    </div>
+</main>
+{{end}}
 
-        <!-- Rule Documentation -->
-        <div class="card border mt-4">
-            <div class="card-header">
-                <h5 class="mb-0">Rule Syntax Guide</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6>Boolean Operators</h6>
-                        <table class="table table-sm">
-                            <tbody>
-                                <tr>
-                                    <td><code>AND</code></td>
-                                    <td>Both conditions must be true</td>
-                                </tr>
-                                <tr>
-                                    <td><code>OR</code></td>
-                                    <td>At least one condition must be true</td>
-                                </tr>
-                                <tr>
-                                    <td><code>NOT</code></td>
-                                    <td>Excludes matches (negation)</td>
-                                </tr>
-                                <tr>
-                                    <td><code>( )</code></td>
-                                    <td>Grouping for precedence</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="col-md-6">
-                        <h6>Examples</h6>
-                        <ul class="list-unstyled">
-                            <li class="mb-2">
-                                <code class="text-primary">login AND paypal</code>
-                                <br><small class="text-muted">Matches domains with both keywords</small>
-                            </li>
-                            <li class="mb-2">
-                                <code class="text-primary">(twitter OR x.com) AND login</code>
-                                <br><small class="text-muted">Matches twitter/x with login</small>
-                            </li>
-                            <li class="mb-2">
-                                <code class="text-primary">bank AND NOT official</code>
-                                <br><small class="text-muted">Bank domains excluding official ones</small>
-                            </li>
-                            <li class="mb-2">
-                                <code class="text-primary">(paypal OR stripe) AND login AND NOT (paypal.com OR stripe.com)</code>
-                                <br><small class="text-muted">Payment phishing excluding official domains</small>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-                <div class="alert alert-info mb-0 mt-3">
-                    <i class="bi bi-info-circle me-2"></i>
-                    <strong>Note:</strong> NOT keywords are checked separately to ensure proper exclusion. Order of operators doesn't matter - expressions are parsed into a tree structure.
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <!-- Footer -->
-    <footer class="border-top mt-5 py-4">
-        <div class="container-fluid">
-            <div class="row align-items-center">
-                <div class="col-md-6 text-center text-md-start mb-3 mb-md-0">
-                    <p class="mb-0 text-muted">
-                        Made with <span class="text-danger">❤️</span> by
-                        <a href="https://github.com/StasonJatham" class="text-decoration-none" target="_blank" rel="noopener noreferrer">Karl Machleidt</a>
-                    </p>
-                </div>
-                <div class="col-md-6 text-center text-md-end">
-                    <div class="d-flex justify-content-center justify-content-md-end align-items-center gap-3 flex-wrap">
-                        <a href="https://github.com/StasonJatham" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener noreferrer" title="GitHub">
-                            <i class="bi bi-github me-1"></i>GitHub
-                        </a>
-                        <a href="https://evil.fail/linkedin" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener noreferrer" title="LinkedIn">
-                            <i class="bi bi-linkedin me-1"></i>LinkedIn
-                        </a>
-                        <a href="https://karl.fail/?mtm_campaign=canary&mtm_kwd=profile" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener noreferrer" title="Blog">
-                            <i class="bi bi-newspaper me-1"></i>Blog
-                        </a>
-                        <a href="https://github.com/StasonJatham/canary" class="btn btn-sm btn-primary" target="_blank" rel="noopener noreferrer" title="Fork on GitHub">
-                            <i class="bi bi-stars me-1"></i>Fork on GitHub
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </footer>
-
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Theme toggle
-        const themeToggle = document.getElementById('themeToggle');
-        const html = document.documentElement;
-
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        html.setAttribute('data-bs-theme', savedTheme);
-        updateThemeIcon(savedTheme);
-
-        themeToggle.addEventListener('click', () => {
-            const currentTheme = html.getAttribute('data-bs-theme');
-            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-            html.setAttribute('data-bs-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
-            updateThemeIcon(newTheme);
-        });
-
-        function updateThemeIcon(theme) {
-            const icon = document.querySelector('#themeToggle i');
-            icon.className = theme === 'light' ? 'bi bi-moon-fill' : 'bi bi-sun-fill';
-        }
-    </script>
-</body>
-</html>
+{{define "extra_head"}}{{end}}
+{{define "extra_js"}}{{end}}
