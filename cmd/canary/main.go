@@ -135,11 +135,10 @@ func main() {
 	mux := http.NewServeMux()
 
 	// Public routes (no auth required)
-	mux.HandleFunc("/login", handlers.ServeLogin)
+	mux.HandleFunc("/login", handlers.ServeLoginPage)
 	mux.HandleFunc("/auth/login", handlers.Login)
 	mux.HandleFunc("/hook", handlers.Hook) // Webhook endpoint should be public
 	mux.HandleFunc("/health", handlers.Health)
-	mux.HandleFunc("/config", handlers.GetConfig) // Public config info
 
 	// Enable public dashboard mode (must be set before middleware setup)
 	if os.Getenv("PUBLIC_DASHBOARD") == "true" {
@@ -164,12 +163,21 @@ func main() {
 	}
 
 	// HTML Pages (template-based, server-rendered)
-	mux.Handle("/", viewMW(http.HandlerFunc(handlers.ServeUI)))
+	mux.Handle("/", viewMW(http.HandlerFunc(handlers.ServeDashboardPage)))
 	mux.Handle("/rules", viewMW(http.HandlerFunc(handlers.ServeRulesPage)))       // HTML view
 	mux.Handle("/rules/new", authMW(http.HandlerFunc(handlers.ServeRuleForm)))    // HTML form
 	mux.Handle("/rules/edit/", authMW(http.HandlerFunc(handlers.ServeRuleForm)))  // HTML form
 	mux.Handle("/docs", viewMW(http.HandlerFunc(handlers.ServeAPIDocs)))
 	mux.Handle("/openapi.yaml", viewMW(http.HandlerFunc(handlers.ServeOpenAPISpec)))
+
+	// Serve static assets (JS, CSS, images)
+	mux.Handle("/js/", http.StripPrefix("/js/", http.FileServer(http.Dir("web/js"))))
+	mux.Handle("/theme.css", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "web/theme.css")
+	}))
+	mux.Handle("/canary.jpg", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "web/canary.jpg")
+	}))
 
 	// JSON API endpoints (for backward compatibility and programmatic access)
 	mux.Handle("/api/matches", viewMW(http.HandlerFunc(handlers.GetMatches)))
@@ -191,7 +199,9 @@ func main() {
 	mux.Handle("/rules/update/", authMW(csrfMW(http.HandlerFunc(handlers.UpdateRuleForm))))
 	mux.Handle("/rules/delete/", authMW(csrfMW(http.HandlerFunc(handlers.DeleteRuleForm))))
 	mux.Handle("/rules/toggle/", authMW(csrfMW(http.HandlerFunc(handlers.ToggleRuleForm))))
-	mux.Handle("/auth/logout", authMW(csrfMW(http.HandlerFunc(handlers.Logout))))
+
+	// Logout endpoint (no CSRF required - simple form POST)
+	mux.Handle("/auth/logout", authMW(http.HandlerFunc(handlers.Logout)))
 
 	port := os.Getenv("PORT")
 	if port == "" {

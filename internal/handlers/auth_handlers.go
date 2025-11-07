@@ -20,40 +20,64 @@ func ServeLogin(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Login handles user authentication
+// Login handles user authentication (supports both form and JSON)
 func Login(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	var credentials struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
-	}
+	var username, password string
+	isFormSubmit := false
 
-	if err := json.NewDecoder(r.Body).Decode(&credentials); err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request"})
-		return
+	// Check if it's a form submission or JSON
+	contentType := r.Header.Get("Content-Type")
+	if contentType == "application/x-www-form-urlencoded" || contentType == "" {
+		// Form submission
+		if err := r.ParseForm(); err == nil {
+			username = r.FormValue("username")
+			password = r.FormValue("password")
+			isFormSubmit = true
+		}
+	} else {
+		// JSON submission (for backwards compatibility)
+		var credentials struct {
+			Username string `json:"username"`
+			Password string `json:"password"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&credentials); err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request"})
+			return
+		}
+		username = credentials.Username
+		password = credentials.Password
 	}
 
 	// Authenticate user
-	user, err := auth.AuthenticateUser(config.DB, credentials.Username, credentials.Password)
+	user, err := auth.AuthenticateUser(config.DB, username, password)
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusUnauthorized)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "Invalid credentials"})
+		if isFormSubmit {
+			http.Redirect(w, r, "/login?error=Invalid+credentials", http.StatusSeeOther)
+		} else {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Invalid credentials"})
+		}
 		return
 	}
 
 	// Create session
 	token, err := auth.CreateSession(config.DB, user.ID, user.Username)
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "Failed to create session"})
+		if isFormSubmit {
+			http.Redirect(w, r, "/login?error=Failed+to+create+session", http.StatusSeeOther)
+		} else {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Failed to create session"})
+		}
 		return
 	}
 
@@ -64,15 +88,19 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		MaxAge:   30 * 24 * 60 * 60, // 30 days in seconds
 		HttpOnly: true,
-		Secure:   config.SecureCookies, // Automatically enabled when DOMAIN is set
+		Secure:   config.SecureCookies,
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"success": "true"})
+	if isFormSubmit {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+	} else {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"success": "true"})
+	}
 }
 
-// Logout handles user logout
+// Logout handles user logout (no CSRF required - simple action)
 func Logout(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -94,12 +122,12 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   -1,
 		Expires:  time.Unix(0, 0),
 		HttpOnly: true,
-		Secure:   config.SecureCookies, // Match the secure flag from login
+		Secure:   config.SecureCookies,
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"success": "true"})
+	// Redirect to login page
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
 // CreateUser handles user creation (admin only - can be extended with proper authorization)

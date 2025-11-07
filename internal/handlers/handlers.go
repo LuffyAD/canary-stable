@@ -365,17 +365,27 @@ func Metrics(w http.ResponseWriter, r *http.Request) {
 func GetConfig(w http.ResponseWriter, r *http.Request) {
 	// Check if user is authenticated by validating session cookie
 	authenticated := false
+	csrfToken := ""
 	cookie, err := r.Cookie("canary_session")
 	if err == nil {
 		// Try to validate session
 		_, err := auth.GetSessionByToken(config.DB, cookie.Value)
 		authenticated = (err == nil)
+
+		// Get CSRF token if authenticated
+		if authenticated {
+			token, err := auth.GetOrCreateCSRFToken(cookie.Value)
+			if err == nil {
+				csrfToken = token
+			}
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"public_dashboard": config.PublicDashboard,
 		"authenticated":    authenticated,
+		"csrf_token":       csrfToken,
 	})
 }
 

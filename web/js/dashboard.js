@@ -1,4 +1,5 @@
-// Dashboard functionality
+// Dashboard - Live Data Polling Only
+// All write operations (logout, clear matches) are handled by HTML forms
 class Dashboard {
     constructor() {
         this.matches = [];
@@ -6,90 +7,42 @@ class Dashboard {
         this.currentPage = 0;
         this.pageSize = 20;
         this.refreshInterval = null;
-        this.publicDashboard = false;
-        this.authenticated = false;
 
         this.init();
     }
 
-    // Single ordering function - always sort by newest timestamp first
-    sortByNewestFirst(matches) {
-        return matches.sort((a, b) => {
-            const dateA = new Date(a.detected_at);
-            const dateB = new Date(b.detected_at);
-            return dateB - dateA; // Descending order (newest first)
-        });
-    }
-
     async init() {
-        // Wait for auth check to complete before loading data
-        await this.checkPublicMode();
-
         this.setupEventListeners();
         this.setupThemeToggle();
 
-        // Now load data with correct auth state
+        // Initial load
         await this.loadMetrics();
         await this.loadMatches();
         await this.loadPerformanceMetrics();
+
+        // Start auto-refresh for live data
         this.startAutoRefresh();
     }
 
-    async checkPublicMode() {
-        try {
-            const response = await fetch('/config', {
-                credentials: 'same-origin'
-            });
-            if (response.ok) {
-                const data = await response.json();
-                this.publicDashboard = data.public_dashboard || false;
-                this.authenticated = data.authenticated || false;
-
-                const clearBtn = document.getElementById('clearBtn');
-
-                // Show button if: NOT in public mode OR authenticated
-                // Hide button if: in public mode AND not authenticated
-                const shouldShowButton = !this.publicDashboard || this.authenticated;
-
-                if (clearBtn) {
-                    clearBtn.style.display = shouldShowButton ? '' : 'none';
-                }
-            }
-        } catch (error) {
-            console.error('Error checking public mode:', error);
-            // On error, keep button hidden for security
-        }
-    }
-
     setupEventListeners() {
+        // Search and filter (client-side)
         document.getElementById('refreshBtn').addEventListener('click', () => this.loadMatches());
-        document.getElementById('clearBtn').addEventListener('click', () => this.clearMatches());
         document.getElementById('searchInput').addEventListener('input', () => this.filterMatches());
         document.getElementById('timeRange').addEventListener('change', () => this.loadMatches());
         document.getElementById('priorityFilter').addEventListener('change', () => this.filterMatches());
+
+        // Pagination
         document.getElementById('prevPage').addEventListener('click', () => this.prevPage());
         document.getElementById('nextPage').addEventListener('click', () => this.nextPage());
-        document.getElementById('logoutBtn').addEventListener('click', () => this.logout());
-    }
 
-    async loadPerformanceMetrics() {
-        try {
-            const response = await fetch('/metrics/performance?minutes=60');
-            if (!response.ok) throw new Error('Failed to load performance metrics');
-
-            const data = await response.json();
-            const current = data.current;
-
-            if (current) {
-                document.getElementById('certsPerMin').textContent = current.certs_per_minute.toLocaleString();
-                document.getElementById('matchesPerMin').textContent = current.matches_per_minute.toLocaleString();
-                document.getElementById('avgMatchTime').textContent = current.avg_match_time_us + ' μs';
-                document.getElementById('cpuUsage').textContent = current.cpu_percent.toFixed(1) + '%';
-                document.getElementById('memoryUsage').textContent = current.memory_used_mb.toFixed(1) + ' MB';
-                document.getElementById('goroutines').textContent = current.goroutine_count.toLocaleString();
-            }
-        } catch (error) {
-            console.error('Error loading performance metrics:', error);
+        // Clear matches button (shows confirmation)
+        const clearBtn = document.getElementById('clearBtn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                if (confirm('Are you sure you want to clear all matches from memory?')) {
+                    document.getElementById('clearForm').submit();
+                }
+            });
         }
     }
 
@@ -97,7 +50,6 @@ class Dashboard {
         const themeToggle = document.getElementById('themeToggle');
         const html = document.documentElement;
 
-        // Check saved theme
         const savedTheme = localStorage.getItem('theme') || 'light';
         html.setAttribute('data-bs-theme', savedTheme);
         this.updateThemeIcon(savedTheme);
@@ -118,21 +70,32 @@ class Dashboard {
 
     async loadMetrics() {
         try {
-            const response = await fetch('/metrics');
+            const response = await fetch('/api/metrics');
             if (!response.ok) throw new Error('Failed to load metrics');
 
             const data = await response.json();
-
             document.getElementById('totalMatches').textContent = data.total_matches.toLocaleString();
             document.getElementById('totalCerts').textContent = data.total_certs.toLocaleString();
-            document.getElementById('uptime').textContent = this.formatUptime(data.uptime_seconds);
+            document.getElementById('activeRules').textContent = data.rules_count.toLocaleString();
 
-            // Load rules count
-            const rulesResponse = await fetch('/rules');
-            if (rulesResponse.ok) {
-                const rulesData = await rulesResponse.json();
-                const activeRules = rulesData.rules.filter(r => r.enabled).length;
-                document.getElementById('activeRules').textContent = activeRules;
+            // Format uptime
+            const uptime = data.uptime_seconds;
+            let uptimeStr = '';
+            if (uptime < 60) {
+                uptimeStr = uptime + 's';
+            } else if (uptime < 3600) {
+                uptimeStr = Math.floor(uptime / 60) + 'm';
+            } else if (uptime < 86400) {
+                uptimeStr = Math.floor(uptime / 3600) + 'h';
+            } else {
+                uptimeStr = Math.floor(uptime / 86400) + 'd';
+            }
+            document.getElementById('uptime').textContent = uptimeStr;
+
+            // Show clear button if there are matches
+            const clearBtn = document.getElementById('clearBtn');
+            if (clearBtn && data.recent_matches > 0) {
+                clearBtn.style.display = '';
             }
 
             this.updateStatusBadge(true);
@@ -142,66 +105,67 @@ class Dashboard {
         }
     }
 
-    formatUptime(seconds) {
-        const days = Math.floor(seconds / 86400);
-        const hours = Math.floor((seconds % 86400) / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
+    async loadPerformanceMetrics() {
+        try {
+            const response = await fetch('/api/metrics/performance?minutes=60');
+            if (!response.ok) throw new Error('Failed to load performance metrics');
 
-        if (days > 0) return `${days}d ${hours}h`;
-        if (hours > 0) return `${hours}h ${minutes}m`;
-        return `${minutes}m`;
-    }
+            const data = await response.json();
+            const current = data.current;
 
-    updateStatusBadge(online) {
-        const badge = document.getElementById('statusBadge');
-        if (badge) {
-            if (online) {
-                badge.className = 'badge bg-success';
-                badge.innerHTML = '<i class="bi bi-check-circle me-1"></i>Online';
-            } else {
-                badge.className = 'badge bg-danger';
-                badge.innerHTML = '<i class="bi bi-x-circle me-1"></i>Offline';
+            if (current) {
+                document.getElementById('certsPerMin').textContent = current.certs_per_minute.toLocaleString();
+                document.getElementById('matchesPerMin').textContent = current.matches_per_minute.toLocaleString();
+                document.getElementById('avgMatchTime').textContent = current.avg_match_time_us + ' μs';
+                document.getElementById('cpuUsage').textContent = current.cpu_percent.toFixed(1) + '%';
+                document.getElementById('memoryUsage').textContent = current.memory_used_mb.toFixed(1) + ' MB';
+                document.getElementById('goroutines').textContent = current.goroutine_count.toLocaleString();
             }
+        } catch (error) {
+            console.error('Error loading performance metrics:', error);
         }
     }
 
     async loadMatches() {
-        const minutes = document.getElementById('timeRange').value;
+        const timeRange = document.getElementById('timeRange').value;
 
         try {
-            const response = await fetch(`/matches/recent?minutes=${minutes}`);
+            const response = await fetch(`/api/matches/recent?minutes=${timeRange}`);
             if (!response.ok) throw new Error('Failed to load matches');
 
             const data = await response.json();
             this.matches = data.matches || [];
-
-            // Always sort by newest first using the single ordering function
-            this.sortByNewestFirst(this.matches);
+            this.matches = this.sortByNewestFirst(this.matches);
 
             this.filterMatches();
-            this.loadMetrics(); // Refresh metrics too
+            this.updateStatusBadge(true);
         } catch (error) {
             console.error('Error loading matches:', error);
-            this.showToast('Failed to load matches', 'danger');
+            this.updateStatusBadge(false);
+            this.matches = [];
+            this.renderMatches();
         }
+    }
+
+    sortByNewestFirst(matches) {
+        return matches.sort((a, b) => {
+            const dateA = new Date(a.detected_at);
+            const dateB = new Date(b.detected_at);
+            return dateB - dateA;
+        });
     }
 
     filterMatches() {
         const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-        const priority = document.getElementById('priorityFilter').value;
+        const priorityFilter = document.getElementById('priorityFilter').value;
 
         this.filteredMatches = this.matches.filter(match => {
-            const matchesSearch = !searchTerm ||
-                match.dns_names.some(d => d.toLowerCase().includes(searchTerm)) ||
-                match.matched_rule.toLowerCase().includes(searchTerm);
-
-            const matchesPriority = !priority || match.priority === priority;
-
-            return matchesSearch && matchesPriority;
+            const domainMatch = match.dns_names.some(domain =>
+                domain.toLowerCase().includes(searchTerm)
+            );
+            const priorityMatch = !priorityFilter || match.priority === priorityFilter;
+            return domainMatch && priorityMatch;
         });
-
-        // Always sort by newest first using the single ordering function
-        this.sortByNewestFirst(this.filteredMatches);
 
         this.currentPage = 0;
         this.renderMatches();
@@ -213,32 +177,33 @@ class Dashboard {
         const end = start + this.pageSize;
         const pageMatches = this.filteredMatches.slice(start, end);
 
+        // Update counts
+        document.getElementById('matchCount').textContent = `${this.filteredMatches.length} matches`;
+        document.getElementById('matchCountFooter').textContent = `${this.filteredMatches.length} matches`;
+
+        // Update pagination buttons
+        document.getElementById('prevPage').disabled = this.currentPage === 0;
+        document.getElementById('nextPage').disabled = end >= this.filteredMatches.length;
+
         if (pageMatches.length === 0) {
             tbody.innerHTML = `
                 <tr>
                     <td colspan="6" class="text-center text-muted py-5">
                         <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                        ${this.matches.length === 0 ? 'No matches found. Waiting for certificates...' : 'No matches found for the current filters.'}
+                        No matches found. Adjust filters or wait for new certificates...
                     </td>
                 </tr>
             `;
-        } else {
-            tbody.innerHTML = pageMatches.map(match => this.renderMatchRow(match)).join('');
+            return;
         }
 
-        // Update pagination
-        document.getElementById('matchCount').textContent =
-            `${this.filteredMatches.length} match${this.filteredMatches.length !== 1 ? 'es' : ''}`;
-
-        document.getElementById('prevPage').disabled = this.currentPage === 0;
-        document.getElementById('nextPage').disabled = end >= this.filteredMatches.length;
+        tbody.innerHTML = pageMatches.map(match => this.renderMatchRow(match)).join('');
     }
 
     renderMatchRow(match) {
         const timestamp = new Date(match.detected_at).toLocaleString();
-        const domains = match.dns_names.slice(0, 3).join(', ');
-        const moreCount = match.dns_names.length > 3 ? ` (+${match.dns_names.length - 3} more)` : '';
-        const keywords = (match.matched_domains || []).join(', ');
+        const domains = match.dns_names.slice(0, 3).join(', ') +
+                       (match.dns_names.length > 3 ? ` (+${match.dns_names.length - 3} more)` : '');
 
         const priorityBadge = {
             critical: 'danger',
@@ -247,106 +212,32 @@ class Dashboard {
             low: 'secondary'
         }[match.priority] || 'secondary';
 
+        const keywords = Array.isArray(match.matched_domains)
+            ? match.matched_domains.join(', ')
+            : match.matched_domains;
+
         return `
             <tr>
-                <td><small class="text-muted">${timestamp}</small></td>
+                <td><small>${this.escapeHtml(timestamp)}</small></td>
                 <td>
-                    <div class="text-truncate" style="max-width: 300px;" title="${match.dns_names.join(', ')}">
-                        ${this.escapeHtml(domains)}${moreCount}
+                    <div class="text-truncate" style="max-width: 300px;" title="${this.escapeHtml(match.dns_names.join(', '))}">
+                        ${this.escapeHtml(domains)}
                     </div>
                 </td>
+                <td><span class="badge bg-secondary">${this.escapeHtml(match.matched_rule)}</span></td>
+                <td><span class="badge bg-${priorityBadge}">${this.escapeHtml(match.priority)}</span></td>
+                <td><small><code>${this.escapeHtml(keywords)}</code></small></td>
                 <td>
-                    <span class="badge bg-dark">${this.escapeHtml(match.matched_rule || 'N/A')}</span>
-                </td>
-                <td>
-                    <span class="badge bg-${priorityBadge}">${match.priority}</span>
-                </td>
-                <td>
-                    <small class="text-muted">${this.highlightKeywords(keywords, match.matched_domains)}</small>
-                </td>
-                <td>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="dashboard.viewCertDetails('${match.tbs_sha256}')">
-                        <i class="bi bi-eye"></i>
-                    </button>
+                    <a href="https://crt.sh/?q=${encodeURIComponent(match.tbs_sha256)}"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       class="btn btn-sm btn-outline-primary"
+                       title="View on crt.sh">
+                        <i class="bi bi-box-arrow-up-right"></i>
+                    </a>
                 </td>
             </tr>
         `;
-    }
-
-    highlightKeywords(text, keywords) {
-        if (!keywords || keywords.length === 0) return this.escapeHtml(text);
-
-        let highlighted = this.escapeHtml(text);
-        keywords.forEach(keyword => {
-            const escapedKeyword = this.escapeHtml(keyword).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const regex = new RegExp(`(${escapedKeyword})`, 'gi');
-            highlighted = highlighted.replace(regex, '<mark class="bg-warning bg-opacity-50">$1</mark>');
-        });
-        return highlighted;
-    }
-
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    async viewCertDetails(tbsSha256) {
-        const modal = new bootstrap.Modal(document.getElementById('certModal'));
-        const modalBody = document.getElementById('certModalBody');
-
-        modalBody.innerHTML = '<div class="text-center"><div class="spinner-border text-primary"></div></div>';
-        modal.show();
-
-        // Find the certificate details from matches
-        const match = this.matches.find(m => m.tbs_sha256 === tbsSha256);
-        if (match) {
-            modalBody.innerHTML = `
-                <div class="row g-3">
-                    <div class="col-12">
-                        <h6>DNS Names</h6>
-                        <div class="alert alert-secondary mb-0">
-                            ${match.dns_names.map(d => `<div>${this.escapeHtml(d)}</div>`).join('')}
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <h6>Matched Rule</h6>
-                        <p>${this.escapeHtml(match.matched_rule || 'N/A')}</p>
-                    </div>
-                    <div class="col-md-6">
-                        <h6>Priority</h6>
-                        <p><span class="badge bg-secondary">${match.priority}</span></p>
-                    </div>
-                    <div class="col-12">
-                        <h6>Keywords</h6>
-                        <p>${(match.matched_domains || []).map(k => `<span class="badge bg-info me-1">${this.escapeHtml(k)}</span>`).join('')}</p>
-                    </div>
-                    <div class="col-md-6">
-                        <h6>TBS SHA256</h6>
-                        <p><code class="small">${tbsSha256}</code></p>
-                    </div>
-                    <div class="col-md-6">
-                        <h6>Cert SHA256</h6>
-                        <p><code class="small">${match.cert_sha256}</code></p>
-                    </div>
-                </div>
-            `;
-        }
-    }
-
-    async clearMatches() {
-        if (!confirm('Are you sure you want to clear all matches from memory?')) return;
-
-        try {
-            const response = await fetch('/matches/clear', { method: 'POST' });
-            if (!response.ok) throw new Error('Failed to clear matches');
-
-            this.showToast('Matches cleared successfully', 'success');
-            this.loadMatches();
-        } catch (error) {
-            console.error('Error clearing matches:', error);
-            this.showToast('Failed to clear matches', 'danger');
-        }
     }
 
     prevPage() {
@@ -365,41 +256,30 @@ class Dashboard {
     }
 
     startAutoRefresh() {
-        // Refresh every 20 seconds
+        // Refresh metrics and matches every 5 seconds
         this.refreshInterval = setInterval(() => {
+            this.loadMetrics();
             this.loadMatches();
             this.loadPerformanceMetrics();
-        }, 20000);
-    }
-
-    showToast(message, type = 'info') {
-        // Simple toast notification using Bootstrap alerts
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
-        alertDiv.style.zIndex = '9999';
-        alertDiv.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-        document.body.appendChild(alertDiv);
-
-        setTimeout(() => {
-            alertDiv.remove();
         }, 5000);
     }
 
-    async logout() {
-        try {
-            const response = await fetch('/auth/logout', { method: 'POST' });
-            if (response.ok) {
-                window.location.href = '/login';
-            } else {
-                this.showToast('Failed to logout', 'danger');
-            }
-        } catch (error) {
-            console.error('Error logging out:', error);
-            this.showToast('Failed to logout', 'danger');
+    updateStatusBadge(online) {
+        const badge = document.getElementById('statusBadge');
+        if (online) {
+            badge.className = 'badge bg-success';
+            badge.innerHTML = '<i class="bi bi-check-circle me-1"></i>Online';
+        } else {
+            badge.className = 'badge bg-danger';
+            badge.innerHTML = '<i class="bi bi-x-circle me-1"></i>Offline';
         }
+    }
+
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 }
 

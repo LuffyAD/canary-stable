@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"canary/internal/auth"
 	"canary/internal/config"
@@ -93,12 +94,14 @@ func ServeRulesPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
+		ActivePage  string
 		Rules       []*rules.Rule
 		CanEdit     bool
 		Message     string
 		MessageType string
 		CSRFToken   string
 	}{
+		ActivePage:  "rules",
 		Rules:       engine.Rules,
 		CanEdit:     canEdit,
 		Message:     message,
@@ -539,4 +542,72 @@ func deleteRuleFromFile(ruleName string) error {
 	}
 	config.RuleEngine.Store(newEngine)
 	return nil
+}
+
+// ServeDashboardPage renders the dashboard page with server-side data
+func ServeDashboardPage(w http.ResponseWriter, r *http.Request) {
+	if templates == nil {
+		if err := InitTemplates(); err != nil {
+			http.Error(w, "Template error", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Check if user can edit
+	canEdit := canUserEdit(r)
+
+	// Get message from query params (for redirects with messages)
+	message := r.URL.Query().Get("message")
+	messageType := r.URL.Query().Get("type")
+	if messageType == "" {
+		messageType = "info"
+	}
+
+	// Get basic metrics
+	uptime := time.Since(config.StartTime)
+
+	data := struct {
+		ActivePage  string
+		CanEdit     bool
+		Message     string
+		MessageType string
+		CSRFToken   string
+		Uptime      int
+	}{
+		ActivePage:  "dashboard",
+		CanEdit:     canEdit,
+		Message:     message,
+		MessageType: messageType,
+		CSRFToken:   getCSRFToken(r),
+		Uptime:      int(uptime.Seconds()),
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := templates.ExecuteTemplate(w, "dashboard.html", data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// ServeLoginPage renders the login page
+func ServeLoginPage(w http.ResponseWriter, r *http.Request) {
+	if templates == nil {
+		if err := InitTemplates(); err != nil {
+			http.Error(w, "Template error", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Get error from query params (for login failures)
+	errorMsg := r.URL.Query().Get("error")
+
+	data := struct {
+		Error string
+	}{
+		Error: errorMsg,
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := templates.ExecuteTemplate(w, "login.html", data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
