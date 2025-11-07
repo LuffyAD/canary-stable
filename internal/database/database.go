@@ -307,7 +307,7 @@ func GetRecent(since time.Time) ([]models.Match, error) {
 	// Fetch from relevant partition tables
 	for _, tbl := range tables {
 		rows, err := config.DB.Query(
-			fmt.Sprintf(`SELECT cert_id, keyword, COALESCE(matched_rule, ''), COALESCE(priority, 'medium'), domains, tbs_sha256, cert_sha256, timestamp FROM %s WHERE timestamp >= ?`, tbl),
+			fmt.Sprintf(`SELECT cert_id, keyword, COALESCE(matched_rule, ''), COALESCE(priority, 'medium'), domains, tbs_sha256, cert_sha256, timestamp FROM %s WHERE timestamp >= ? ORDER BY timestamp DESC`, tbl),
 			since,
 		)
 		if err != nil {
