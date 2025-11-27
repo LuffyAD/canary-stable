@@ -1,10 +1,11 @@
-# Canary
-
-**Real-time Phishing & Brand Impersonation Detection**
-
-Canary monitors Certificate Transparency (CT) logs in real-time to detect phishing domains and brand impersonation attempts the moment they are issued. It uses high-performance pattern matching to evaluate millions of certificates against your custom rules.
-
-![Canary Dashboard](web/canary.webp)
+<div align="center">
+  <img src="web/canary.webp" alt="Canary Logo" width="200"/>
+  <h1>Canary</h1>
+  <h3>Real-time Phishing & Brand Impersonation Detection</h3>
+  <p>
+    Canary monitors Certificate Transparency (CT) logs in real-time to detect phishing domains and brand impersonation attempts the moment they are issued. It uses high-performance pattern matching to evaluate millions of certificates against your custom rules.
+  </p>
+</div>
 
 ## Features
 
@@ -109,3 +110,13 @@ Canary is built on the shoulders of giants. We gratefully acknowledge:
 - **minify** (MIT) for frontend optimization.
 
 Full license texts are available in the respective repositories.
+
+<br>
+
+<div align="center">
+  <p>
+    <sub>
+      Canary is a tool for defensive security. Use responsibly.
+    </sub>
+  </p>
+</div>
